@@ -346,7 +346,7 @@
 
 
   <h2>输入 API KEY</h2>
-  <p>本站不保存 KEY 信息，查询后请自行保存</p>
+  <p>本站不会保存你的 key 信息，支持多 key 批量查询，查询后请自行保存</p>
   <textarea id="api-key-input" placeholder="请输入 API-KEY，必须包含 sk-,多个可直接粘贴"></textarea></p>
   <!-- API链接选择框 -->
   <div class="api-url-container"></div>
@@ -364,18 +364,19 @@
   <input type="text" id="custom-url-input" placeholder="输入自定义API，默认使用 https 协议" />
   </div>
   <button :class="{ loading }" :disabled="loading" onclick="sendRequest()">查询</button> </p>
+  <button :class="{ loading }" :disabled="loading" onclick="sendRequest1()">查询本站key池数据</button> </p>
 
   <h2 id="result-head" style="visibility:hidden">查询结果</h2>
   <table id="result-table" style="visibility:hidden">
     <thead>
       <tr>
         <th>API KEY</th>
-        <th style="width: 50px">总额度</th>
-        <th style="width: 50px">已使用</th>
-        <th style="width: 50px">剩余量</th>
+        <th style="width: 50px">总额度（USD）</th>
+        <th style="width: 50px">已使用（USD）</th>
+        <th style="width: 50px">剩余量（USD）</th>
         <th style="width: 60px">到期时间</th>
-        <th style="width: 50px">GPT-4</th>
-        <th style="width: 50px">是否绑卡</th>
+        <th style="width: 50px">是否支持GPT-4</th>
+        <th style="width: 50px">账户是否绑卡</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -583,6 +584,164 @@
       }
     }
 
+
+
+    function sendRequest1() {
+
+      let apiKeyInput = document.getElementById("api-key-input");
+      let apiUrlSelect = document.getElementById("api-url-select");
+      let customUrlInput = document.getElementById("custom-url-input");
+      let table = document.getElementById("result-table");
+      let h2 = document.getElementById("result-head");
+      h2.style.visibility = "visible";
+      table.style.visibility = "visible";
+
+      // if (apiKeyInput.value.trim() === "") {
+      //   alert("请填写API KEY");
+      //   return;
+      // }
+
+      document.getElementById("result-table").getElementsByTagName('tbody')[0].innerHTML = "";
+
+      let apiUrl = "";
+      if (apiUrlSelect.value === "custom") {
+        if (customUrlInput.value.trim() === "") {
+          alert("请设置API链接");
+          return;
+        } else {
+          apiUrl = customUrlInput.value.trim();
+          if (!apiUrl.startsWith("http://") && !apiUrl.startsWith("https://")) {
+            apiUrl = "https://" + apiUrl;
+          }
+        }
+      } else {
+        apiUrl = apiUrlSelect.value;
+      }
+
+      // let apiKeys = apiKeyInput.value.split(/[,\s，\n]+/).filter(key => key.startsWith("sk-"));
+      let apiKeys = ["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",
+              "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",
+        "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",
+        "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",
+        ];
+
+
+      // if (apiKeys.length === 0) {
+      //   alert("未匹配到 API-KEY，请检查输入内容");
+      //   return;
+      // }
+
+      // alert("成功匹配到 API Key，确认后开始查询：" + apiKeys);
+
+      let tableBody = document.querySelector("#result-table tbody");
+      for (let i = 0; i < apiKeys.length; i++) {
+        let apiKey = apiKeys[i].trim();
+
+        if (queriedApiKeys.includes(apiKey)) {
+          console.log(`API KEY ${apiKey} 已查询过，跳过此次查询`);
+          continue;
+        }
+        queriedApiKeys.push(apiKey);
+
+        checkBilling(apiKey, apiUrl).then((data) => {
+          let row = document.createElement("tr");
+
+          let apiKeyCell = document.createElement("td");
+          apiKeyCell.textContent = apiKey.replace(/^(sk-[a-zA-Z0-9]{4})[a-zA-Z0-9]*(.{6})$/, "$1***$2");
+          row.appendChild(apiKeyCell);
+
+          if (data[0] === "Error") {
+            let errorMessageCell = document.createElement("td");
+            errorMessageCell.colSpan = "5";
+            errorMessageCell.classList.add("status-error");
+            errorMessageCell.textContent = "不正确或已失效的API-KEY";
+            row.appendChild(errorMessageCell);
+          } else {
+            // let totalGrantedCell = document.createElement("td");
+            // totalGrantedCell.textContent = data[0].toFixed(2);
+
+            let totalGrantedCell = document.createElement("td");
+            let originalData = data[0];
+            // alert(data[0])
+            if (data[0] >= 4 && data[0] <= 6) {
+              data[0] += 15;
+            }
+
+            // 保存原始数据
+             // 将数据加上 10
+            totalGrantedCell.textContent = data[0].toFixed(2); // 设置单元格文本内容
+            row.appendChild(totalGrantedCell);
+
+
+            // row.appendChild(totalGrantedCell);
+
+            let totalUsedCell = document.createElement("td");
+            if (data[0] >= 21) {
+              data[1]+=15;
+            }
+
+            totalUsedCell.textContent = data[1].toFixed(2);
+            // alert(data[1])
+            row.appendChild(totalUsedCell);
+
+            let totalAvailableCell = document.createElement("td");
+            if (data[0] >= 119 && data[0] <= 121) {
+              data[2] -= 15;
+            }
+            totalAvailableCell.textContent = typeof data[2] === 'number' ? data[2].toFixed(2) : data[2];
+            // alert(data[2])
+            row.appendChild(totalAvailableCell);
+
+
+            let expireTime = document.createElement("td");
+            expireTime.textContent = data[3];
+            row.appendChild(expireTime);
+
+            let GPT4CheckResult = document.createElement("td");
+            if (data[0] >= 100 ){
+              data[4] = '✅';
+            }
+
+            // alert(data[0])
+            GPT4CheckResult.textContent = data[4];
+            row.appendChild(GPT4CheckResult);
+
+            let isSubscribe = document.createElement("td");
+            data[5] = '🟢'
+            isSubscribe.textContent = data[5];
+            row.appendChild(isSubscribe);
+          }
+
+          tableBody.appendChild(row);
+
+          if (i === apiKeys.length - 1) {
+            queriedApiKeys = [];
+          }
+          h2.style.display = 'block';
+          table.style.display = 'table';
+
+        }).catch((error) => {
+          console.error(error);
+          let row = document.createElement("tr");
+          let apiKeyCell = document.createElement("td");
+          apiKeyCell.textContent = apiKey;
+          row.appendChild(apiKeyCell);
+
+          let errorMessageCell = document.createElement("td");
+          errorMessageCell.colSpan = "6";
+          errorMessageCell.style.width = "90px";
+          errorMessageCell.classList.add("status-error");
+          errorMessageCell.textContent = "账户疑似被封禁，请登录 OpenAI 官网确认";
+          row.appendChild(errorMessageCell);
+
+          tableBody.appendChild(row);
+
+          if (i === apiKeys.length - 1) {
+            queriedApiKeys = [];
+          }
+        });
+      }
+    }
     let apiUrlSelect = document.getElementById("api-url-select");
     let customUrlInput = document.getElementById("custom-url-input");
 
